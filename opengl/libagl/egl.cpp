@@ -1459,6 +1459,9 @@ EGLBoolean eglGetConfigs(   EGLDisplay dpy,
     if (egl_display_t::is_valid(dpy) == EGL_FALSE)
         return setError(EGL_BAD_DISPLAY, EGL_FALSE);
 
+    if (ggl_unlikely(num_config==0))
+        return setError(EGL_BAD_PARAMETER, EGL_FALSE);
+
     GLint numConfigs = NELEM(gConfigs);
     if (!configs) {
         *num_config = numConfigs;
