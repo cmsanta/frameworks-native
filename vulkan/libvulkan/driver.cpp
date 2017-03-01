@@ -54,9 +54,11 @@ class Hal {
     static const hwvulkan_device_t& Device() { return *Get().dev_; }
 
     int GetDebugReportIndex() const { return debug_report_index_; }
+    int GetKhrSurfaceIndex() const { return khr_surface_index_; }
+    int GetKhrAndroidSurfaceIndex() const { return khr_android_surface_index_; }
 
    private:
-    Hal() : dev_(nullptr), debug_report_index_(-1) {}
+    Hal() : dev_(nullptr), debug_report_index_(-1), khr_surface_index_(-1), khr_android_surface_index_(-1) {}
     Hal(const Hal&) = delete;
     Hal& operator=(const Hal&) = delete;
 
@@ -66,6 +68,8 @@ class Hal {
 
     const hwvulkan_device_t* dev_;
     int debug_report_index_;
+    int khr_surface_index_;
+    int khr_android_surface_index_;
 };
 
 class CreateInfoWrapper {
@@ -183,8 +187,17 @@ bool Hal::InitDebugReportIndex() {
             debug_report_index_ = static_cast<int>(i);
             break;
         }
+        if (strcmp(exts[i].extensionName, VK_KHR_SURFACE_EXTENSION_NAME) ==
+            0) {
+            khr_surface_index_ = static_cast<int>(i);
+            break;
+        }
+        if (strcmp(exts[i].extensionName, VK_KHR_ANDROID_SURFACE_EXTENSION_NAME) ==
+            0) {
+            khr_android_surface_index_ = static_cast<int>(i);
+            break;
+        }
     }
-
     free(exts);
 
     return true;
@@ -606,6 +619,8 @@ VkResult EnumerateInstanceExtensionProperties(
     static const VkExtensionProperties loader_debug_report_extension = {
         VK_EXT_DEBUG_REPORT_EXTENSION_NAME, VK_EXT_DEBUG_REPORT_SPEC_VERSION,
     };
+    VkResult result;
+    uint32_t askedPropertyCount  = *pPropertyCount;
 
     // enumerate our extensions first
     if (!pLayerName && pProperties) {
@@ -634,8 +649,35 @@ VkResult EnumerateInstanceExtensionProperties(
         }
     }
 
-    VkResult result = Hal::Device().EnumerateInstanceExtensionProperties(
-        pLayerName, pPropertyCount, pProperties);
+    // dedup the instance extension from driver
+    if(!pLayerName && pProperties) {
+        VkExtensionProperties* exts = reinterpret_cast<VkExtensionProperties*>(
+                malloc(sizeof(VkExtensionProperties) * askedPropertyCount));
+        result = Hal::Device().EnumerateInstanceExtensionProperties(
+                pLayerName, &askedPropertyCount, exts);
+        uint32_t offset = 0;
+        for (uint32_t i = 0; i < askedPropertyCount; i++) {
+            uint32_t dedup = 0;
+            for (uint32_t j = 0; j < static_cast<uint32_t>(loader_extensions.size()); j++) {
+                if (strcmp(exts[i].extensionName,
+                            loader_extensions[j].extensionName) == 0) {
+                    ALOGD("dedup extension %s", exts[i].extensionName);
+                    dedup = 1;
+                    break;
+                }
+            }
+            if (dedup == 0){
+                std::copy_n(exts + i, 1, pProperties + offset);
+                offset += 1;
+            }
+        }
+        *pPropertyCount = askedPropertyCount;
+        free(exts);
+    }
+    else {
+        result = Hal::Device().EnumerateInstanceExtensionProperties(
+                pLayerName, pPropertyCount, pProperties);
+    }
 
     if (!pLayerName && (result == VK_SUCCESS || result == VK_INCOMPLETE)) {
         int idx = Hal::Get().GetDebugReportIndex();
@@ -649,6 +691,8 @@ VkResult EnumerateInstanceExtensionProperties(
         }
 
         *pPropertyCount += loader_extensions.size();
+        if((idx = Hal::Get().GetKhrSurfaceIndex()) >= 0) *pPropertyCount -= 1;
+        if((idx = Hal::Get().GetKhrAndroidSurfaceIndex()) >= 0) *pPropertyCount -= 1;
     }
 
     return result;
