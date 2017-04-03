@@ -70,7 +70,7 @@ static const char gVertexShader[] = "attribute vec4 vPosition;\n"
 
 static const char gFragmentShader[] = "precision mediump float;\n"
     "void main() {\n"
-    "  gl_FragColor = vec4(0.0, 1.0, 0.0, 0.5);\n"
+    "  gl_FragColor = vec4(1.0, 1.0, 0.0, 0.5);\n"
     "}\n";
 
 GLuint loadShader(GLenum shaderType, const char* pSource) {
@@ -458,7 +458,7 @@ int main(int argc, char** argv) {
         return 0;
     }
 
-    for (;;) {
+    for (int i=0; i<500;i++) {
         renderFrame(w, h);
         eglSwapBuffers(dpy, surface);
         checkEglError("eglSwapBuffers");
