@@ -451,10 +451,7 @@ void renderFrame(GLint w, GLint h, int filter_method, int gl_copy) {
     /* Both main window surface and FBO use the same shader program. */
     GL_CHECK(glUseProgram(programID));
 	    /* Bind the FrameBuffer Object. */
-		fprintf(stderr,"%d\n",__LINE__);
     GL_CHECK(glBindFramebuffer(GL_FRAMEBUFFER, iFBOCMMA));
-	fprintf(stderr,"%d\n",__LINE__);
-
 
 	if(gl_copy){
 		// copy rendered image from CMAA (multi-sample) to normal (single-sample) FBO
@@ -485,9 +482,10 @@ void renderFrame(GLint w, GLint h, int filter_method, int gl_copy) {
 		GL_CHECK(glBindFramebuffer(GL_FRAMEBUFFER, iFBO));
         GL_CHECK(glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D,rgba8_texture_main, 0));		
 		GL_CHECK(glBindTexture(GL_TEXTURE_2D, iFBOTex_copy_from_fbo));
-		GL_CHECK(glCopyTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, 0, 0, w, h));
-
 		//GL_CHECK(glBindTexture(GL_TEXTURE_2D, iFBOTex));
+		GL_CHECK(glCopyTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, 0, 0, TEXTURE_WIDTH, TEXTURE_HEIGHT));
+
+		//GL_CHECK(glBindTexture(GL_TEXTURE_2D, iFBOTex_copy_from_fbo));
 		//GL_CHECK(glGenerateMipmap(GL_TEXTURE_2D));		
 		//GL_CHECK(glBindTexture(GL_TEXTURE_2D, 0));
 	}else{
@@ -500,7 +498,7 @@ void renderFrame(GLint w, GLint h, int filter_method, int gl_copy) {
 		GL_CHECK(glBlitFramebuffer(0, 0, TEXTURE_WIDTH, TEXTURE_HEIGHT, // src rect
 						  0, 0, TEXTURE_WIDTH, TEXTURE_HEIGHT,	// dst rect
 						  GL_COLOR_BUFFER_BIT, // buffer mask
-						  GL_NEAREST/*GL_LINEAR*/));							// scale filter
+						  GL_NEAREST));			// scale filter
 		
 		// trigger mipmaps generation explicitly
 		// NOTE: If GL_GENERATE_MIPMAP is set to GL_TRUE, then glCopyTexSubImage2D()
@@ -512,10 +510,8 @@ void renderFrame(GLint w, GLint h, int filter_method, int gl_copy) {
 
 	}
 
-	fprintf(stderr,"%d\n",__LINE__);
     /* And unbind the FrameBuffer Object so subsequent drawing calls are to the EGL window surface. */
     GL_CHECK(glBindFramebuffer(GL_FRAMEBUFFER,0));
-	fprintf(stderr,"%d\n",__LINE__);
 
     /* Reset viewport to the EGL window surface's dimensions. */
     GL_CHECK(glViewport(0, 0, windowWidth, windowHeight));
@@ -548,6 +544,7 @@ void renderFrame(GLint w, GLint h, int filter_method, int gl_copy) {
     GL_CHECK(glActiveTexture(GL_TEXTURE0));
 	if(gl_copy){
 	    GL_CHECK(glBindTexture(GL_TEXTURE_2D, iFBOTex_copy_from_fbo));
+		//GL_CHECK(glBindTexture(GL_TEXTURE_2D, iFBOTex));
 	}else{
 		GL_CHECK(glBindTexture(GL_TEXTURE_2D, iFBOTex));
 	}
@@ -683,6 +680,7 @@ int main(int argc, char** argv) {
 			break;			
 		default:
 			filter_method = 0;
+			gl_copy = 0;
 	}
 
 	fprintf(stderr,"filter: %d, gl_copy: %d\n",filter_method, gl_copy);
@@ -768,7 +766,7 @@ int main(int argc, char** argv) {
 	if(filter_method)
 		cmma->Initialize();
 
-    for (int i=0; i<5; i++) {
+    for (int i=0; i<300; i++) {
         renderFrame(w, h, filter_method, gl_copy);
         eglSwapBuffers(dpy, surface);
         checkEglError("eglSwapBuffers");
