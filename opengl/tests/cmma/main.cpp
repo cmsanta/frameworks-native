@@ -409,9 +409,15 @@ void renderFrame(GLint w, GLint h, int filter_method, int gl_copy) {
         GL_CHECK(glEnableVertexAttribArray(iLocTexCoord));
         GL_CHECK(glVertexAttribPointer(iLocTexCoord, 2, GL_FLOAT, GL_FALSE, 0, cubeTextureCoordinates));
     }
+	//note: glcopy uses only the main FBO
+	if(gl_copy){
+		/* Bind the FrameBuffer Object. */
+		GL_CHECK(glBindFramebuffer(GL_FRAMEBUFFER, iFBO));
 
-    /* Bind the FrameBuffer Object. */
-    GL_CHECK(glBindFramebuffer(GL_FRAMEBUFFER, iFBOCMMA));
+	}else {
+		/* Bind the FrameBuffer Object. */
+		GL_CHECK(glBindFramebuffer(GL_FRAMEBUFFER, iFBOCMMA));
+	}
 
     /* Set the viewport according to the FBO's texture. */
     GL_CHECK(glViewport(0, 0, FBO_WIDTH, FBO_HEIGHT));
@@ -450,43 +456,33 @@ void renderFrame(GLint w, GLint h, int filter_method, int gl_copy) {
 	//fprintf(stderr, "main: rgba8_texture_main = %u\n",rgba8_texture_main);
     /* Both main window surface and FBO use the same shader program. */
     GL_CHECK(glUseProgram(programID));
-	    /* Bind the FrameBuffer Object. */
-    GL_CHECK(glBindFramebuffer(GL_FRAMEBUFFER, iFBOCMMA));
 
 	if(gl_copy){
-		// copy rendered image from CMAA (multi-sample) to normal (single-sample) FBO
-		// NOTE: The multi samples at a pixel in read buffer will be converted
-		// to a single sample at the target pixel in draw buffer.
-		//GL_CHECK(glBindFramebuffer(GL_READ_FRAMEBUFFER, iFBOCMMA));
-		//GL_CHECK(glBindFramebuffer(GL_DRAW_FRAMEBUFFER, iFBO));
-		//GL_CHECK(glBlitFramebuffer(0, 0, TEXTURE_WIDTH, TEXTURE_HEIGHT, // src rect
-		//				  0, 0, TEXTURE_WIDTH, TEXTURE_HEIGHT,	// dst rect
-		//				  GL_COLOR_BUFFER_BIT, // buffer mask
-		//				  GL_NEAREST/*GL_LINEAR*/));							// scale filter
+		GL_CHECK(glBindFramebuffer(GL_FRAMEBUFFER, iFBO));
+
+	}else {
+		/* Bind the FrameBuffer Object. */
+		GL_CHECK(glBindFramebuffer(GL_FRAMEBUFFER, iFBOCMMA));
+	}
+
+	if(gl_copy){
+
+		//FIXME:
+		iFBOTex_copy_from_fbo = iFBOTex;
+
+		/* Copy content of FBO into a texture */
+		GL_CHECK(glBindFramebuffer(GL_FRAMEBUFFER, iFBO));
+		GL_CHECK(glBindTexture(GL_TEXTURE_2D, iFBOTex_copy_from_fbo));
+		GL_CHECK(glCopyTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, 0, 0, TEXTURE_WIDTH, TEXTURE_HEIGHT));						  
 		
 		// trigger mipmaps generation explicitly
 		// NOTE: If GL_GENERATE_MIPMAP is set to GL_TRUE, then glCopyTexSubImage2D()
 		// triggers mipmap generation automatically. However, the texture attached
 		// onto a FBO should generate mipmaps manually via glGenerateMipmap().
-		//GL_CHECK(glBindTexture(GL_TEXTURE_2D, iFBOTex));
-		//GL_CHECK(glGenerateMipmap(GL_TEXTURE_2D));
-		//GL_CHECK(glBindTexture(GL_TEXTURE_2D, 0));
-		//GL_CHECK(glBindFramebuffer(GL_FRAMEBUFFER, iFBO));
-		// Copy content of FBO into a texture
-		GL_CHECK(glActiveTexture(GL_TEXTURE0));
-		GL_CHECK(glBindTexture(GL_TEXTURE_2D, rgba8_texture_main));
-		GL_CHECK(glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE));
-	    GL_CHECK(glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE));
-	    GL_CHECK(glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST));
-	    GL_CHECK(glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST));
-		GL_CHECK(glBindFramebuffer(GL_FRAMEBUFFER, iFBO));
-        GL_CHECK(glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D,rgba8_texture_main, 0));		
 		GL_CHECK(glBindTexture(GL_TEXTURE_2D, iFBOTex_copy_from_fbo));
-		//GL_CHECK(glBindTexture(GL_TEXTURE_2D, iFBOTex));
-		GL_CHECK(glCopyTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, 0, 0, TEXTURE_WIDTH, TEXTURE_HEIGHT));
+		GL_CHECK(glGenerateMipmap(GL_TEXTURE_2D));
+		GL_CHECK(glBindTexture(GL_TEXTURE_2D, 0));
 
-		//GL_CHECK(glBindTexture(GL_TEXTURE_2D, iFBOTex_copy_from_fbo));
-		//GL_CHECK(glGenerateMipmap(GL_TEXTURE_2D));		
 		//GL_CHECK(glBindTexture(GL_TEXTURE_2D, 0));
 	}else{
 	
@@ -498,7 +494,7 @@ void renderFrame(GLint w, GLint h, int filter_method, int gl_copy) {
 		GL_CHECK(glBlitFramebuffer(0, 0, TEXTURE_WIDTH, TEXTURE_HEIGHT, // src rect
 						  0, 0, TEXTURE_WIDTH, TEXTURE_HEIGHT,	// dst rect
 						  GL_COLOR_BUFFER_BIT, // buffer mask
-						  GL_NEAREST));			// scale filter
+						  GL_NEAREST));			// scale filter				  
 		
 		// trigger mipmaps generation explicitly
 		// NOTE: If GL_GENERATE_MIPMAP is set to GL_TRUE, then glCopyTexSubImage2D()
@@ -544,14 +540,12 @@ void renderFrame(GLint w, GLint h, int filter_method, int gl_copy) {
     GL_CHECK(glActiveTexture(GL_TEXTURE0));
 	if(gl_copy){
 	    GL_CHECK(glBindTexture(GL_TEXTURE_2D, iFBOTex_copy_from_fbo));
-		//GL_CHECK(glBindTexture(GL_TEXTURE_2D, iFBOTex));
 	}else{
 		GL_CHECK(glBindTexture(GL_TEXTURE_2D, iFBOTex));
 	}
 
     /* And draw the cube. */
     GL_CHECK(glDrawElements(GL_TRIANGLE_STRIP, sizeof(cubeIndices) / sizeof(GLubyte), GL_UNSIGNED_BYTE, cubeIndices));
-
 
     /* Update cube's rotation angles for animating. */
     angleX += .03;
