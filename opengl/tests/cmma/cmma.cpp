@@ -50,14 +50,15 @@ void ApplyFramebufferAttachmentCMAAINTELResourceManager::Initialize(){
 	}
 
 	if(is_gles31_compatible_) {
-	   //TODO: 
+	   //FIXME: TODO: 
 	   //decoder->GetGLContext()->HasExtension("GL_NV_image_formats");
-	    // ES 3.0 requires GL_RGBA8UI is color renderable.
+	   // ES 3.0 requires GL_RGBA8UI is color renderable.
 	    supports_usampler_ = true;
 	}else {
 	   // CMAA requires GL_ARB_shader_image_load_store for GL, and it requires r8
 	    // image texture.
 
+		//FIXME: TODO:
 	   //DCHECK(decoder->GetGLContext()->HasExtension(
 	   //     "GL_ARB_shader_image_load_store"));
 	    supports_r8_image_ = true;
@@ -206,7 +207,7 @@ void ApplyFramebufferAttachmentCMAAINTELResourceManager::Destroy() {
 // color attachments of currently bound draw framebuffer.
 // Reference GL_INTEL_framebuffer_CMAA for details.
 void ApplyFramebufferAttachmentCMAAINTELResourceManager::
-    ApplyFramebufferAttachmentCMAAINTEL(GLuint *source_cmma_bound_fbo, GLuint *rgba8_texture_main, int texture_width, int texture_height,
+    ApplyFramebufferAttachmentCMAAINTEL(GLuint *source_texture_bound_fbo, GLuint *rgba8_texture_main, int texture_width, int texture_height,
 		GLenum internal_format_bound_fbo) {
 
   if (! initialized_){
@@ -214,10 +215,10 @@ void ApplyFramebufferAttachmentCMAAINTELResourceManager::
 	return;
   }
 
-  glDisable(GL_SCISSOR_TEST);
-  glDisable(GL_STENCIL_TEST);
-  glDisable(GL_CULL_FACE);
-  glDisable(GL_BLEND);
+  GL_CHECK(glDisable(GL_SCISSOR_TEST));
+  GL_CHECK(glDisable(GL_STENCIL_TEST));
+  GL_CHECK(glDisable(GL_CULL_FACE));
+  GL_CHECK(glDisable(GL_BLEND));
 
   // Process each color attachment of the currently bound draw framebuffer.
   //FIXME: assume only 1 color attachment for now
@@ -226,16 +227,13 @@ void ApplyFramebufferAttachmentCMAAINTELResourceManager::
   
   for (uint32_t i = 0; i < max_draw_buffers; i++) {
 		
-      GLuint source_texture = *source_cmma_bound_fbo;
+      GLuint source_texture = *source_texture_bound_fbo;
       GLsizei width = texture_width;
       GLsizei height = texture_height;
       GLenum internal_format = internal_format_bound_fbo;
 	  
       // Resize internal structures - only if needed.
       OnSize(width, height, rgba8_texture_main);
-
-	  //fprintf(stderr,"*** %s %d tex: %u, w: %d, h: %d, format: %x \n",__FUNCTION__,__LINE__,
-	  //source_texture, width_, height_, internal_format);	  
 
       // CMAA internally expects GL_RGBA8 textures.
       // Process using a GL_RGBA8 copy if this is not the case.
@@ -247,20 +245,6 @@ void ApplyFramebufferAttachmentCMAAINTELResourceManager::
       if (do_copy) {
 	  	
         ApplyCMAAEffectTexture(source_texture, rgba8_texture_, do_copy);
-
-        //copier->DoCopySubTexture(
-        //    decoder, GL_TEXTURE_2D, rgba8_texture_, 0, GL_RGBA8, GL_TEXTURE_2D,
-        //    source_texture, 0, internal_format, 0, 0, 0, 0, width_, height_,
-        //    width_, height_, width_, height_, false, false, false, method);
-
-		/*glActiveTexture(GL_TEXTURE0);
-		glBindTexture(GL_TEXTURE_2D, rgba8_texture_);
-	    glBindTexture(GL_TEXTURE_2D, source_texture);
-	    glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
-	    glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
-	    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
-	    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
-	    glCopyTexSubImage2D(GL_TEXTURE_2D, 0, 0, 0, 0, 0, width_, height_);*/		
 
     }
   }
@@ -285,9 +269,8 @@ void ApplyFramebufferAttachmentCMAAINTELResourceManager::ApplyCMAAEffectTexture(
     edge_texture_a = edges1_texture_;
     edge_texture_b = edges0_texture_;
   }
-
+  
   // Setup the main fbo
-  //GL_CHECK(glBindFramebuffer(GL_FRAMEBUFFER, source_texture));
   GL_CHECK(glBindFramebuffer(GL_FRAMEBUFFER, cmaa_framebuffer_));
 
   //Associates the textures with the FBO
@@ -297,14 +280,8 @@ void ApplyFramebufferAttachmentCMAAINTELResourceManager::ApplyCMAAEffectTexture(
   GL_CHECK(glFramebufferTexture2D(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT, GL_TEXTURE_2D,
                             mini4_edge_depth_texture_, 0));
 
-  /*fixme: need call these 2 to get a complete fbo*/
-  //fprintf(stderr,"******* here %s %d\n",__FUNCTION__,__LINE__);
-  GL_CHECK(glReadBuffer(GL_NONE));
-  GL_CHECK(glDrawBuffers(0,GL_NONE));
-
-#if 0
+#if 1
   GLenum status = GL_CHECK(glCheckFramebufferStatus(GL_FRAMEBUFFER));
-  fprintf(stderr,"******* here %s %d\n",__FUNCTION__,__LINE__);
 
   if (status != GL_FRAMEBUFFER_COMPLETE) {
     fprintf(stderr,  "ApplyFramebufferAttachmentCMAAINTEL: \n");
@@ -360,7 +337,7 @@ void ApplyFramebufferAttachmentCMAAINTELResourceManager::ApplyCMAAEffectTexture(
     GL_CHECK(glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR));
     GL_CHECK(glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR));
 
-    GL_CHECK(glDrawArrays(GL_TRIANGLES, 0, 3));
+   GL_CHECK(glDrawArrays(GL_TRIANGLES, 0, 3));
   }
 
   // Detect edges Pass 1 (finish the previous pass edge processing).
@@ -475,10 +452,13 @@ void ApplyFramebufferAttachmentCMAAINTELResourceManager::ApplyCMAAEffectTexture(
     GL_CHECK(glDrawArrays(GL_TRIANGLES, 0, 3));	
   }
 
+  //restoring some of the GL state back
   GL_CHECK(glColorMask(GL_TRUE, GL_TRUE, GL_TRUE, GL_TRUE));
   GL_CHECK(glDisable(GL_DEPTH_TEST));
   GL_CHECK(glDepthMask(GL_FALSE));
   GL_CHECK(glActiveTexture(GL_TEXTURE0));
+  glEnable(GL_CULL_FACE);
+  glCullFace(GL_BACK); 
 
 }
 
@@ -493,9 +473,7 @@ void ApplyFramebufferAttachmentCMAAINTELResourceManager::OnSize(GLint width,
   width_ = width;
 
   GL_CHECK(glGenTextures(1, &rgba8_texture_));
-  //fprintf(stderr, "cmma: rgba8_texture_ = %u\n",rgba8_texture_);
   *rgba8_texture_main = rgba8_texture_;
-  //fprintf(stderr, "cmma: rgba8_texture_main = %u\n",*rgba8_texture_main);
 
   GL_CHECK(glBindTexture(GL_TEXTURE_2D, rgba8_texture_));
   GL_CHECK(glTexStorage2D(GL_TEXTURE_2D, 1, GL_RGBA8, width, height));
@@ -518,7 +496,7 @@ void ApplyFramebufferAttachmentCMAAINTELResourceManager::OnSize(GLint width,
   GL_CHECK(glTexStorage2D(GL_TEXTURE_2D, 1, GL_RGBA8, width, height));
 
   /*paranoia?*/
-  glBindTexture(GL_TEXTURE_2D, 0);
+  //GL_CHECK(glBindTexture(GL_TEXTURE_2D, 0));
   
   // Half*half compressed 4-edge-per-pixel texture - RGBA8
   GL_CHECK(glGenTextures(1, &mini4_edge_texture_));
@@ -527,10 +505,10 @@ void ApplyFramebufferAttachmentCMAAINTELResourceManager::OnSize(GLint width,
     GL_CHECK(glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA,
             width, height,0, GL_RGBA, GL_UNSIGNED_BYTE, NULL));
 
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);  
+    GL_CHECK(glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE));
+    GL_CHECK(glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE));
+    GL_CHECK(glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST));
+    GL_CHECK(glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST));  
 
   GLenum format = GL_RGBA8UI;
   if (!supports_usampler_) {
@@ -540,7 +518,7 @@ void ApplyFramebufferAttachmentCMAAINTELResourceManager::OnSize(GLint width,
                     (height + 1) / 2));
 
   /*paranoia?*/
-  GL_CHECK(glBindTexture(GL_TEXTURE_2D, 0));
+  //GL_CHECK(glBindTexture(GL_TEXTURE_2D, 0));
 
   // Depth
   GL_CHECK(glGenTextures(1, &mini4_edge_depth_texture_));
@@ -556,7 +534,7 @@ void ApplyFramebufferAttachmentCMAAINTELResourceManager::OnSize(GLint width,
   GL_CHECK(glTexStorage2D(GL_TEXTURE_2D, 1, GL_DEPTH_COMPONENT16, (width + 1) / 2,
                     (height + 1) / 2));
   /*paranoia?*/
-  GL_CHECK(glBindTexture(GL_TEXTURE_2D, 0));
+ // GL_CHECK(glBindTexture(GL_TEXTURE_2D, 0));
   
   // Create the FBO
   GL_CHECK(glGenFramebuffers(1, &cmaa_framebuffer_));
@@ -583,13 +561,13 @@ void ApplyFramebufferAttachmentCMAAINTELResourceManager::OnSize(GLint width,
 
 void ApplyFramebufferAttachmentCMAAINTELResourceManager::ReleaseTextures() {
   if (textures_initialized_) {
-    glDeleteFramebuffers(1, &cmaa_framebuffer_);
-    glDeleteTextures(1, &rgba8_texture_);
-    glDeleteTextures(1, &edges0_texture_);
-    glDeleteTextures(1, &edges1_texture_);
-    glDeleteTextures(1, &mini4_edge_texture_);
-    glDeleteTextures(1, &mini4_edge_depth_texture_);
-    glDeleteTextures(1, &working_color_texture_);
+    GL_CHECK(glDeleteFramebuffers(1, &cmaa_framebuffer_));
+    GL_CHECK(glDeleteTextures(1, &rgba8_texture_));
+    GL_CHECK(glDeleteTextures(1, &edges0_texture_));
+    GL_CHECK(glDeleteTextures(1, &edges1_texture_));
+    GL_CHECK(glDeleteTextures(1, &mini4_edge_texture_));
+    GL_CHECK(glDeleteTextures(1, &mini4_edge_depth_texture_));
+    GL_CHECK(glDeleteTextures(1, &working_color_texture_));
   }
   textures_initialized_ = false;
 }
@@ -603,22 +581,22 @@ GLuint ApplyFramebufferAttachmentCMAAINTELResourceManager::CreateProgram(
   GLuint vs = CreateShader(GL_VERTEX_SHADER, defines, vs_source);
   GLuint fs = CreateShader(GL_FRAGMENT_SHADER, defines, fs_source);
 
-  glAttachShader(program, vs);
-  glDeleteShader(vs);
-  glAttachShader(program, fs);
-  glDeleteShader(fs);
+  GL_CHECK(glAttachShader(program, vs));
+  GL_CHECK(glDeleteShader(vs));
+  GL_CHECK(glAttachShader(program, fs));
+  GL_CHECK(glDeleteShader(fs));
 
-  glLinkProgram(program);
+  GL_CHECK(glLinkProgram(program));
   GLint link_status;
-  glGetProgramiv(program, GL_LINK_STATUS, &link_status);
+  GL_CHECK(glGetProgramiv(program, GL_LINK_STATUS, &link_status));
   if (link_status == 0) {
     GLint info_log_length;
-    glGetProgramiv(program, GL_INFO_LOG_LENGTH, &info_log_length);
+    GL_CHECK(glGetProgramiv(program, GL_INFO_LOG_LENGTH, &info_log_length));
     std::vector<GLchar> info_log(info_log_length);
-    glGetProgramInfoLog(program, static_cast<GLsizei>(info_log.size()), NULL,
-                        &info_log[0]);
+    GL_CHECK(glGetProgramInfoLog(program, static_cast<GLsizei>(info_log.size()), NULL,
+                        &info_log[0]));
     fprintf(stderr, "ApplyFramebufferAttachmentCMAAINTEL: program link failed: \n");
-    glDeleteProgram(program);
+    GL_CHECK(glDeleteProgram(program));
     program = 0;
   }
   return program;
@@ -628,7 +606,7 @@ GLuint ApplyFramebufferAttachmentCMAAINTELResourceManager::CreateShader(
     GLenum type,
     const char* defines,
     const char* source) {
-  GLuint shader = glCreateShader(type);
+  GLuint shader = GL_CHECK(glCreateShader(type));
 
   const char header_es31[] =
       "#version 310 es                                                      \n";
@@ -651,19 +629,19 @@ GLuint ApplyFramebufferAttachmentCMAAINTELResourceManager::CreateShader(
 
   std::string header_str = header.str();
   const char* source_array[4] = {header_str.c_str(), defines, "\n", source};
-  glShaderSource(shader, 4, source_array, NULL);
+  GL_CHECK(glShaderSource(shader, 4, source_array, NULL));
 
-  glCompileShader(shader);
+  GL_CHECK(glCompileShader(shader));
 
   GLint compile_result;
-  glGetShaderiv(shader, GL_COMPILE_STATUS, &compile_result);
+  GL_CHECK(glGetShaderiv(shader, GL_COMPILE_STATUS, &compile_result));
   if (compile_result == 0) {
 
     GLint info_log_length;
-    glGetShaderiv(shader, GL_INFO_LOG_LENGTH, &info_log_length);
+    GL_CHECK(glGetShaderiv(shader, GL_INFO_LOG_LENGTH, &info_log_length));
     std::vector<GLchar> info_log(info_log_length);
-    glGetShaderInfoLog(shader, static_cast<GLsizei>(info_log.size()), NULL,
-                       &info_log[0]);
+    GL_CHECK(glGetShaderInfoLog(shader, static_cast<GLsizei>(info_log.size()), NULL,
+                       &info_log[0]));
     fprintf(stderr, "ApplyFramebufferAttachmentCMAAINTEL: shader compilation failed: \n");
 	if(type == GL_VERTEX_SHADER)
             fprintf(stderr,"GL_VERTEX_SHADER\n");
@@ -672,7 +650,7 @@ GLuint ApplyFramebufferAttachmentCMAAINTELResourceManager::CreateShader(
 	else
                 fprintf(stderr,"UNKNOWN_SHADER\n");
 
-    glDeleteShader(shader);
+    GL_CHECK(glDeleteShader(shader));
     shader = 0;
   }
 

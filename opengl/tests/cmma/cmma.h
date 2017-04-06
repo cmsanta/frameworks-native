@@ -49,7 +49,7 @@ public:
 
 	// Applies the algorithm to the color attachments of the currently bound draw
 	// framebuffer.
-	void ApplyFramebufferAttachmentCMAAINTEL(GLuint *source_cmma_bound_fbo, GLuint *rgba8_texture_main, int texture_width, int texture_height,
+	void ApplyFramebufferAttachmentCMAAINTEL(GLuint *source_texture_bound_fbo, GLuint *rgba8_texture_main, int texture_width, int texture_height,
 		GLenum internal_format_bound_fbo);
 
 private:
